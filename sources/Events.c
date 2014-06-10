@@ -39,17 +39,23 @@ extern "C" {
 
 /*
 ** ===================================================================
-**     Event       :  fifop_interrupt (module Events)
+**     Event       :  Cpu_OnLLSWakeUpINT (module Events)
 **
-**     Component   :  CC_FIFOP [ExtInt]
-**     Description :
-**         This event is called when an active signal edge/level has
-**         occurred.
-**     Parameters  : None
-**     Returns     : Nothing
-** ===================================================================
+**     Component   :  Cpu [MKL25Z128LK4]
 */
-void fifop_interrupt(void)
+/*!
+**     @brief
+**         This event is called when Low Leakage WakeUp interrupt
+**         occurs. LLWU flags indicating source of the wakeup can be
+**         obtained by calling the [GetLLSWakeUpFlags] method. Flags
+**         indicating the external pin wakeup source are automatically
+**         cleared after this event is executed. It is responsibility
+**         of user to clear flags corresponding to internal modules.
+**         This event is automatically enabled when [LLWU interrupt
+**         request] is enabled.
+*/
+/* ===================================================================*/
+void Cpu_OnLLSWakeUpINT(void)
 {
   /* Write your code here ... */
 }

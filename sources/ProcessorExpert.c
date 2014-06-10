@@ -49,8 +49,7 @@
 #include "BitIoLdd9.h"
 #include "CC_SFD.h"
 #include "BitIoLdd10.h"
-#include "CC_FIFOP.h"
-#include "ExtIntLdd1.h"
+#include "INT_TPM0.h"
 #include "INT_SysTick.h"
 #include "EE24LC256.h"
 #include "MPL_RST.h"
@@ -60,16 +59,13 @@
 #include "WAIT1.h"
 #include "GI2C1.h"
 #include "I2C0.h"
-#include "USBD.h"
-#include "USB0.h"
-#include "CDC1.h"
-#include "Tx1.h"
-#include "Rx1.h"
 #include "CS1.h"
 #include "UTIL1.h"
 #include "WP.h"
 #include "BitIoLdd1.h"
 #include "INT_LPTimer.h"
+#include "INT_DMA0.h"
+#include "INT_PORTD.h"
 /* Including shared modules, which are used for whole project */
 #include "PE_Types.h"
 #include "PE_Error.h"
@@ -77,14 +73,23 @@
 #include "IO_Map.h"
 
 /* User includes (#include below this line is not maintained by Processor Expert) */
-#include "mpl115a2.h"
-#include <stdio.h>
-
-#define USE_USB_CDC 0
+#define USE_USB_CDC     0
+#define HAS_EEPROM      0
+#define HAS_BAROMETER   1
+#define HAS_TRANSCEIVER 1
 #define EEPROM_ADDR 0x00
+#if HAS_BAROMETER
+#include "mpl115a2.h"
+#endif
+#if HAS_TRANSCEIVER
+#include "cc2520.h"
+#endif
+#include <stdio.h>
 
 void SysTick_IRQHandler(void) {}
 void LPTMR_IRQHandler(void) {}
+void TPM0_IRQHandler(void) {}
+void DMA0_IRQHandler(void) {}
 
 #if USE_USB_CDC
 static uint8_t cdc_buffer[USBD_DATA_BUFF_SIZE];
@@ -148,7 +153,15 @@ main(void)
 /*lint -restore Enable MISRA rule (6.3) checking. */
 {
   /* Write your local variable definition here */
+#if HAS_BAROMETER
+  int16_t pressure;
+#endif
+#if HAS_EEPROM
   uint8_t res;
+#endif
+#if HAS_TRANSCEIVER
+  char packet[6] = "Hello\0";
+#endif
 
   /*** Processor Expert internal initialization. DON'T REMOVE THIS CODE!!! ***/
   PE_low_level_init();
@@ -156,12 +169,21 @@ main(void)
 
   /* Write your code here */
   /* For example: for(;;) { } */
-  //mpl115a2_init();
+  printf("Hardware initializing...\n");
+  Led_Yellow_On();
+#if HAS_TRANSCEIVER
+  cc2520_init();
+#endif
+#if HAS_BAROMETER
+  mpl115a2_init();
+#endif
+#if HAS_EEPROM
   res = EE24LC256_Test();
   if (res != ERR_OK)
     {
       for (;;) {} /* failure */
     }
+#endif
 #if USE_USB_CDC
   (void) CDC1_SendString((unsigned char*) "EEPROM OK*\r\n");
   (void) EE24LC256_WriteByte(EEPROM_ADDR, 0x0A);
@@ -175,11 +197,19 @@ main(void)
   
   CDC_Run();
 #endif /* USE_USB_CDC */
+  Led_Yellow_Off();
+  printf("Hardware initialized.\n");
+#if HAS_TRANSCEIVER
+  printf("Chip ID: 0x%02x\n", cc2520_get_chip_id());
+  printf("Chip Version: 0x%02x\n", cc2520_get_chip_version());
+  printf("Frequncy: 0x%02x\n", cc2520_get_channel());
+  cc2520_send(&packet, 0x06);
+#endif
   for(;;)
     {
       Led_Green_Neg();
-      Led_Yellow_Neg();
-      WAIT1_Waitms(500);
+      WAIT1_Waitms(1000);
+      printf("Measured pressure: %d\n",mpl115a2_get_pressure());
     }
 
   /*** Don't write any code pass this line, or it will be deleted during code generation. ***/
